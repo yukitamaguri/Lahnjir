@@ -1,220 +1,559 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>MIKEN</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@800;900&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@800;900&family=Instrument+Sans:wght@400;500&display=swap">
 <style>
-:root{
-  --bg:#dcdde0; --ink:#000; --dim:#00000099; --grid:#00000012;
-  --frag:#000; --line:transparent; --a:#ff2d55; --b:#00d4ff;
-  box-sizing:border-box;
-  padding-top:env(safe-area-inset-top,0px);
-  padding-bottom:env(safe-area-inset-bottom,0px);
+/* Layout: fixed Spline stage (moved by scroll via CSS transform) under a faint 72px grid;
+   four 100svh panels scroll over it — empty / text left / text right / empty.
+   Chrome (brand, clock, counter) only exists while text is on screen. */
+:root {
+  color-scheme: dark;
+  --bg: #0b0c0e;
+  --ink: #f2f3f5;
+  --dim: #f2f3f5a0;
+  --faint: #f2f3f529;
+  --grid: #ffffff0b;
+  --frag: #000;
+  --line: #f2f3f58c;
+  --a: #ff2d55;
+  --b: #00d4ff;
+  --display: "Unbounded", "Arial Black", Impact, sans-serif;
+  --body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
 }
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){--bg:#111215;--ink:#f2f3f5;--dim:#f2f3f5a0;--grid:#ffffff12;--line:#f2f3f58c}
+*, *::before, *::after { box-sizing: border-box; }
+html { scrollbar-width: thin; scrollbar-color: var(--faint) transparent; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 14px;
+  overflow-x: clip;
+  -webkit-user-select: none;
+  user-select: none;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0;
 }
-:root[data-theme="dark"]{--bg:#111215;--ink:#f2f3f5;--dim:#f2f3f5a0;--grid:#ffffff12;--line:#f2f3f58c}
-*,*::before,*::after{box-sizing:inherit}
-html,body{height:100%;margin:0}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{
-  background:var(--bg);color:var(--ink);overflow:hidden;
-  touch-action:none;-webkit-user-select:none;user-select:none;
-  font-family:"Instrument Sans","Helvetica Neue",Arial,sans-serif;
-  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-  background-size:72px 72px;background-position:-1px -1px;
+@media (pointer: fine) { body { cursor: none; } }
+
+/* ---------- 3D stage ---------- */
+#stage {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  will-change: transform;
 }
-.page{height:100%;display:flex;flex-direction:column;justify-content:space-between;padding:clamp(18px,3.2vw,44px)}
-.top{display:flex;flex-direction:column;gap:14px;max-width:34ch;margin-left:auto}
-.lead{font-size:clamp(20px,2.5vw,36px);line-height:1.12;font-weight:500;letter-spacing:-.02em;margin:0}
-.sub{font-size:clamp(14px,1.25vw,18px);line-height:1.45;color:var(--dim);margin:0;max-width:38ch}
-h1{
-  font-family:"Unbounded","Arial Black",Impact,sans-serif;font-weight:900;
-  font-size:clamp(52px,19vw,420px);line-height:.82;letter-spacing:-.05em;margin:0 0 0 -.04em;
-  white-space:nowrap;
+#orb { position: absolute; inset: 0; opacity: 0; }
+#spline { display: block; width: 100%; height: 100%; pointer-events: none; }
+
+.grid {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 72px 72px;
+  background-position: -1px -1px;
+  -webkit-mask-image: radial-gradient(ellipse at center, #0006 0%, #000 75%);
+  mask-image: radial-gradient(ellipse at center, #0006 0%, #000 75%);
 }
-.foot{display:flex;justify-content:space-between;gap:16px;font-size:clamp(13px,1.1vw,16px);margin-top:clamp(14px,2vw,28px)}
-.foot p{margin:0}
-.w{display:inline-block;white-space:nowrap}
-.c{display:inline-block;will-change:transform,opacity}
-#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:5}
-#cur{position:fixed;left:0;top:0;width:30px;height:30px;margin:-15px 0 0 -15px;border:1px solid var(--ink);border-radius:50%;pointer-events:none;z-index:6;opacity:0;transition:opacity .25s,width .2s,height .2s,margin .2s}
-#cur::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;background:var(--ink)}
-#cur.on{opacity:1}
-@media (pointer:coarse){#cur{display:none}}
-@media (max-width:640px){.top{max-width:none;margin-left:0}}
+
+/* ---------- panels ---------- */
+#track { position: relative; z-index: 3; }
+.panel {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: grid;
+  align-items: center;
+  padding-block: clamp(72px, 12vh, 140px);
+}
+.copy {
+  width: 100%;
+  max-width: min(540px, 44vw);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 1.6vw, 22px);
+}
+.panel.left .copy { justify-self: start; margin-left: clamp(0px, 4vw, 72px); }
+.panel.right .copy { justify-self: end; margin-right: clamp(0px, 4vw, 72px); }
+
+.label {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.title {
+  margin: 0 0 0 -.04em;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: clamp(52px, 8.4vw, 150px);
+  line-height: .82;
+  letter-spacing: -.05em;
+  white-space: nowrap;
+}
+.lead {
+  margin: 0;
+  font-size: clamp(20px, 2.3vw, 34px);
+  line-height: 1.12;
+  font-weight: 500;
+  letter-spacing: -.02em;
+  text-wrap: balance;
+}
+.sub {
+  margin: 0;
+  max-width: 38ch;
+  font-size: clamp(14px, 1.2vw, 17px);
+  line-height: 1.5;
+  color: var(--dim);
+}
+.meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--faint);
+  font-size: clamp(12px, 1vw, 14px);
+}
+.meta p { margin: 0; }
+.meta p + p { color: var(--dim); text-align: right; }
+
+.works { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--faint); }
+.works li {
+  display: grid;
+  grid-template-columns: 1fr auto 3.2em;
+  align-items: baseline;
+  gap: 16px;
+  padding-block: 13px;
+  border-bottom: 1px solid var(--faint);
+}
+.works .wn { min-width: 0; font-size: clamp(15px, 1.35vw, 19px); font-weight: 500; letter-spacing: -.01em; }
+.works .wt, .works .wy { font-size: 12px; color: var(--dim); }
+.works .wy { text-align: right; font-variant-numeric: tabular-nums; }
+.contact { margin: 0; display: flex; justify-content: space-between; gap: 16px; font-size: clamp(12px, 1vw, 14px); }
+.contact span:first-child { color: var(--dim); }
+
+@media (max-width: 760px) {
+  .panel { align-items: end; padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+  .copy { max-width: none; margin-inline: 0 !important; }
+  .title { font-size: clamp(52px, 17vw, 96px); }
+  .works .wt { display: none; }
+  .works li { grid-template-columns: 1fr 3.2em; }
+}
+
+/* ---------- chrome ---------- */
+.chrome {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  font-size: 11px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--dim);
+  pointer-events: none;
+  opacity: 0;
+  padding-left: max(clamp(18px, 3.2vw, 44px), env(safe-area-inset-left, 0px));
+  padding-right: max(clamp(18px, 3.2vw, 44px), env(safe-area-inset-right, 0px));
+}
+.chrome.top { top: 0; padding-top: calc(clamp(18px, 3vw, 36px) + env(safe-area-inset-top, 0px)); }
+.chrome.bot { bottom: 0; padding-bottom: calc(clamp(18px, 3vw, 36px) + env(safe-area-inset-bottom, 0px)); }
+.chrome .brand { color: var(--ink); font-family: var(--display); font-weight: 900; letter-spacing: .02em; font-size: 13px; }
+.chrome .num { font-variant-numeric: tabular-nums; }
+
+/* ---------- glitch ---------- */
+.w { display: inline-block; white-space: nowrap; }
+.c { display: inline-block; will-change: transform, opacity; }
+#fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+#cur {
+  position: fixed;
+  left: 0; top: 0;
+  width: 30px; height: 30px;
+  margin: -15px 0 0 -15px;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 7;
+  opacity: 0;
+  transition: opacity .25s;
+}
+#cur::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 4px; height: 4px;
+  margin: -2px;
+  background: var(--ink);
+}
+#cur.on { opacity: 1; }
+@media (pointer: coarse) { #cur { display: none; } }
+
+/* ---------- loader ---------- */
+#veil {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  background: var(--bg);
+  display: grid;
+  place-items: center;
+  transition: opacity 1s ease;
+}
+#veil i {
+  display: block;
+  width: min(180px, 40vw);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ink), transparent);
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: scan 1.2s ease-in-out infinite;
+}
+#veil.gone { opacity: 0; pointer-events: none; }
+@keyframes scan { from { background-position: -100% 0; } to { background-position: 200% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  #veil i { animation: none; background-size: 100% 100%; }
+}
 </style>
-</head>
-<body>
-<div class="page">
-  <div class="top">
-    <p class="lead" data-split>Tipografi yang terurai saat disentuh.</p>
-    <p class="sub" data-split>Gerakkan kursor melintasi huruf. Menjauh, dan huruf-huruf itu menyusun dirinya kembali.</p>
-  </div>
-  <div>
-    <h1 data-split>MIKEN</h1>
-    <div class="foot">
-      <p data-split>Miken, 2026</p>
-      <p data-split>Developer dan pembuat eksperimen</p>
+
+<div id="stage"><div id="orb"><canvas id="spline"></canvas></div></div>
+<div class="grid"></div>
+
+<header class="chrome top" data-host="chrome">
+  <span class="brand" data-split>MIKEN</span>
+  <span>JKT <span class="num" id="clock">00:00:00</span></span>
+</header>
+
+<main id="track">
+  <section class="panel" aria-label="Pembuka"></section>
+
+  <section class="panel left">
+    <div class="copy" data-host="s2">
+      <p class="label" data-split>Profil</p>
+      <h1 class="title" data-split>MIKEN</h1>
+      <p class="lead" data-split>Tipografi yang terurai saat disentuh.</p>
+      <p class="sub" data-split>Gerakkan kursor melintasi huruf. Menjauh, dan huruf-huruf itu menyusun dirinya kembali.</p>
+      <div class="meta">
+        <p data-split>Miken, 2026</p>
+        <p data-split>Developer dan pembuat eksperimen</p>
+      </div>
     </div>
-  </div>
-</div>
+  </section>
+
+  <section class="panel right">
+    <div class="copy" data-host="s3">
+      <p class="label" data-split>Karya terpilih</p>
+      <p class="lead" data-split>Antarmuka yang melihat balik.</p>
+      <ul class="works">
+        <li><span class="wn" data-split>Mata Kaca</span><span class="wt" data-split>Spline, WebGL</span><span class="wy">2026</span></li>
+        <li><span class="wn" data-split>Tipografi Terurai</span><span class="wt" data-split>Canvas 2D</span><span class="wy">2026</span></li>
+        <li><span class="wn" data-split>Ruang Gulir</span><span class="wt" data-split>GSAP</span><span class="wy">2025</span></li>
+        <li><span class="wn" data-split>Grid Hidup</span><span class="wt" data-split>Three.js</span><span class="wy">2025</span></li>
+      </ul>
+      <p class="contact"><span data-split>Kontak</span><span data-split>halo@miken.dev</span></p>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Penutup"></section>
+</main>
+
+<footer class="chrome bot" data-host="chrome">
+  <span class="num" id="counter">01 / 04</span>
+  <span data-split>Portofolio 2026</span>
+</footer>
+
 <canvas id="fx"></canvas>
 <div id="cur"></div>
-<script>
-(function(){
-  var cv=document.getElementById('fx'),ctx=cv.getContext('2d'),cur=document.getElementById('cur');
-  var W=0,H=0,dpr=1,chars=[],frags=[],R=60,col={frag:'#000',line:'transparent'};
-  var smooth=function(a,b,x){x=Math.min(1,Math.max(0,(x-a)/(b-a)));return x*x*(3-2*x)};
+<div id="veil"><i></i></div>
 
-  document.querySelectorAll('[data-split]').forEach(function(el){
-    var t=el.textContent;el.setAttribute('aria-label',t);el.textContent='';
-    var words=t.split(' ');
-    words.forEach(function(w,i){
-      var wd=document.createElement('span');wd.className='w';wd.setAttribute('aria-hidden','true');
-      Array.from(w).forEach(function(ch){
-        var s=document.createElement('span');s.className='c';s.textContent=ch;wd.appendChild(s);
-        chars.push({el:s,d:0,prev:0,on:false,l:0,t:0,r:0,b:0,cx:0,cy:0,h:0});
-      });
-      el.appendChild(wd);
-      if(i<words.length-1)el.appendChild(document.createTextNode(' '));
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script type="module">
+const SCENE = "https://prod.spline.design/MMOUCClLE8G5XBoV/scene.splinecode";
+const RUNTIME = "https://unpkg.com/@splinetool/runtime@1.9.59/build/runtime.js";
+const BG = "#0b0c0e";
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const $ = s => document.querySelector(s);
+const smooth = (a, b, x) => { x = Math.min(1, Math.max(0, (x - a) / (b - a))); return x * x * (3 - 2 * x); };
+
+/* ---------- clock ---------- */
+const clock = $("#clock");
+const tick = () => { clock.textContent = new Date().toLocaleTimeString("en-GB", { hour12: false }); };
+tick(); setInterval(tick, 1000);
+
+/* ---------- pointer (shared by gaze + glitch) ---------- */
+const cur = $("#cur");
+let tx = -9999, ty = -9999, clr = 0;
+function setP(x, y) { tx = x; ty = y; clearTimeout(clr); }
+addEventListener("pointermove", e => {
+  setP(e.clientX, e.clientY);
+  if (e.pointerType !== "touch") cur.classList.add("on");
+}, { passive: true });
+addEventListener("pointerdown", e => setP(e.clientX, e.clientY), { passive: true });
+// touch scrolling cancels pointer events, so follow the finger through touch events
+addEventListener("touchstart", e => setP(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+addEventListener("touchmove", e => setP(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+addEventListener("touchend", () => { clr = setTimeout(() => { tx = ty = -9999; }, 450); }, { passive: true });
+document.documentElement.addEventListener("mouseleave", () => { tx = ty = -9999; cur.classList.remove("on"); });
+addEventListener("blur", () => { tx = ty = -9999; });
+
+/* ---------- split text ---------- */
+const hosts = {};
+document.querySelectorAll("[data-host]").forEach(el => {
+  const id = el.dataset.host;
+  (hosts[id] ||= { els: [] }).els.push(el);
+});
+const chars = [];
+document.querySelectorAll("[data-split]").forEach(el => {
+  const hostEl = el.closest("[data-host]");
+  const t = el.textContent;
+  el.setAttribute("aria-label", t);
+  el.textContent = "";
+  const words = t.split(" ");
+  words.forEach((w, i) => {
+    const wd = document.createElement("span");
+    wd.className = "w";
+    wd.setAttribute("aria-hidden", "true");
+    Array.from(w).forEach(ch => {
+      const s = document.createElement("span");
+      s.className = "c";
+      s.textContent = ch;
+      wd.appendChild(s);
+      chars.push({ el: s, hostEl, ox: 0, oy: 0, w: 0, h: 0, l: 0, t: 0, r: 0, b: 0, d: 0, prev: 0, on: false });
     });
+    el.appendChild(wd);
+    if (i < words.length - 1) el.appendChild(document.createTextNode(" "));
   });
+});
 
-  function colors(){
-    var s=getComputedStyle(document.documentElement);
-    col.frag=s.getPropertyValue('--frag').trim()||'#000';
-    col.line=s.getPropertyValue('--line').trim()||'transparent';
-  }
-  function measure(){
-    chars.forEach(function(c){c.el.style.transform='';c.el.style.clipPath='';c.el.style.opacity='';c.el.style.textShadow='';c.on=false;c.d=0;c.prev=0});
-    chars.forEach(function(c){
-      var r=c.el.getBoundingClientRect();
-      c.l=r.left;c.t=r.top;c.r=r.right;c.b=r.bottom;c.cx=(r.left+r.right)/2;c.cy=(r.top+r.bottom)/2;c.h=r.height;
+/* ---------- glitch engine ---------- */
+const cv = $("#fx"), ctx = cv.getContext("2d");
+let W = 0, H = 0, R = 60;
+const frags = [];
+const col = { frag: "#000", line: "transparent" };
+
+// offsets are stored relative to the host so scroll/GSAP transforms only need one rect read per host per frame
+function measure() {
+  chars.forEach(c => { const s = c.el.style; s.transform = ""; s.clipPath = ""; s.opacity = ""; s.textShadow = ""; c.on = false; c.d = 0; c.prev = 0; });
+  const cache = new Map();
+  chars.forEach(c => {
+    if (!cache.has(c.hostEl)) cache.set(c.hostEl, c.hostEl.getBoundingClientRect());
+    const hr = cache.get(c.hostEl), r = c.el.getBoundingClientRect();
+    c.ox = r.left - hr.left; c.oy = r.top - hr.top; c.w = r.width; c.h = r.height;
+  });
+}
+function resize() {
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  W = innerWidth; H = innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  R = Math.max(34, Math.min(88, W * .065));
+  const s = getComputedStyle(document.documentElement);
+  col.frag = s.getPropertyValue("--frag").trim() || "#000";
+  col.line = s.getPropertyValue("--line").trim() || "transparent";
+  measure();
+}
+addEventListener("resize", resize);
+resize();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(resize);
+setTimeout(resize, 700);
+
+function spawn(c, rate, recov) {
+  let n = 0, p = rate;
+  while (p > 0 && n < 4) { if (Math.random() < p) n++; p -= 1; }
+  for (let i = 0; i < n && frags.length < 420; i++) {
+    let big = Math.max(4, Math.min(54, c.h * (.06 + Math.random() * .22)));
+    big = Math.round(big / 2) * 2;
+    const bar = Math.random() < .3;
+    const sp = (1.2 + Math.random() * 3.8) * (recov ? .5 : 1);
+    const a = Math.random() * 6.283;
+    frags.push({
+      x: c.l + Math.random() * (c.r - c.l), y: c.t + Math.random() * (c.b - c.t),
+      w: bar ? big * (2 + Math.random() * 4) : big, h: bar ? Math.max(2, big * .28) : big,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * .8,
+      life: 16 + Math.random() * 34, ph: Math.random() * 9, rate: .18 + Math.random() * .4
     });
   }
-  function resize(){
-    dpr=Math.min(2,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;
-    cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
-    R=Math.max(34,Math.min(88,W*.065));
-    colors();measure();
+}
+
+let px = -9999, py = -9999, frame = 0;
+function glitch(dt) {
+  frame++;
+  if (tx < -5000) { px = py = -9999; }
+  else {
+    if (px < -5000) { px = tx; py = ty; }
+    px += (tx - px) * Math.min(1, .45 * dt);
+    py += (ty - py) * Math.min(1, .45 * dt);
   }
-  addEventListener('resize',resize);
-  matchMedia('(prefers-color-scheme:dark)').addEventListener('change',colors);
-  resize();
-  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(resize);
-  setTimeout(resize,700);
+  if (px > -5000) cur.style.transform = "translate(" + px + "px," + py + "px)";
 
-  var tx=-9999,ty=-9999,px=-9999,py=-9999,real=false,ghostOn=true,t0=performance.now(),clr=0;
-  function move(e){
-    real=true;ghostOn=false;tx=e.clientX;ty=e.clientY;
-    if(px<-5000){px=tx;py=ty}
-    if(e.pointerType!=='touch')cur.classList.add('on');
-    clearTimeout(clr);
+  const rects = new Map();
+  const r1 = R, r2 = R * 1.8;
+  for (const c of chars) {
+    let hr = rects.get(c.hostEl);
+    if (!hr) {
+      const r = c.hostEl.getBoundingClientRect();
+      const op = parseFloat(getComputedStyle(c.hostEl).opacity);
+      hr = { x: r.left, y: r.top, vis: op > .15 && r.bottom > 0 && r.top < H };
+      rects.set(c.hostEl, hr);
+    }
+    if (!hr.vis) {
+      if (c.on) { const s = c.el.style; s.transform = ""; s.clipPath = ""; s.opacity = ""; s.textShadow = ""; c.on = false; c.d = c.prev = 0; }
+      continue;
+    }
+    c.l = hr.x + c.ox; c.t = hr.y + c.oy; c.r = c.l + c.w; c.b = c.t + c.h;
+
+    const dx = Math.max(c.l - px, 0, px - c.r), dy = Math.max(c.t - py, 0, py - c.b);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const target = px < -5000 ? 0 : (dist < r1 ? 1 : (dist < r2 ? .32 : 0));
+    c.prev = c.d;
+    if (target > c.d) c.d = Math.min(target, c.d + .2 * dt);
+    else c.d = Math.max(target, c.d - .028 * dt);
+
+    if (c.d < .004) {
+      if (c.on) { const s = c.el.style; s.transform = ""; s.clipPath = ""; s.opacity = ""; s.textShadow = ""; c.on = false; }
+      continue;
+    }
+    c.on = true;
+    const d = c.d, rec = d < c.prev - 1e-4, k = rec ? .5 : 1;
+    let op = 1 - smooth(.42, .78, d);
+    if (Math.random() < (rec ? .14 : .3) * d * (d > .3 ? 2 : 1)) op *= Math.random() < .5 ? 0 : .45;
+    const amp = d * c.h * .22 * k;
+    const jx = (Math.random() - .5) * amp, jy = (Math.random() - .5) * amp * .35, sk = (Math.random() - .5) * d * 34 * k;
+    const sx = d * c.h * .07 * Math.random() * k + .5;
+    const s2 = c.el.style;
+    s2.transform = "translate(" + jx.toFixed(1) + "px," + jy.toFixed(1) + "px) skewX(" + sk.toFixed(1) + "deg)";
+    s2.opacity = op < .02 ? 0 : op.toFixed(2);
+    s2.textShadow = (-sx).toFixed(1) + "px 0 var(--a)," + sx.toFixed(1) + "px 0 var(--b)";
+    if (Math.random() < d * (rec ? .5 : .85)) {
+      const a = Math.random() * 55, b = Math.random() * (70 - a * .4);
+      s2.clipPath = "inset(" + a.toFixed(0) + "% 0 " + b.toFixed(0) + "% 0)";
+    } else s2.clipPath = "";
+
+    if (!rec && d < .95) spawn(c, Math.min(1.6, c.h / 70) * d * .55 * dt, false);
+    else if (rec && d > .12) spawn(c, Math.min(.9, c.h / 120) * d * .18 * dt, true);
   }
-  addEventListener('pointermove',move,{passive:true});
-  addEventListener('pointerdown',move,{passive:true});
-  addEventListener('pointerup',function(e){
-    if(e.pointerType==='touch'){clr=setTimeout(function(){tx=ty=-9999;px=py=-9999},450)}
-  });
-  document.addEventListener('pointerleave',function(){tx=ty=-9999;cur.classList.remove('on')});
-  document.addEventListener('mouseleave',function(){tx=ty=-9999;cur.classList.remove('on')});
-  addEventListener('blur',function(){tx=ty=-9999});
 
-  function spawn(c,rate,recov){
-    var n=0,p=rate;while(p>0&&n<4){if(Math.random()<p)n++;p-=1}
-    for(var i=0;i<n&&frags.length<420;i++){
-      var big=Math.max(4,Math.min(54,c.h*(.06+Math.random()*.22)));
-      big=Math.round(big/2)*2;
-      var bar=Math.random()<.3;
-      var sp=(1.2+Math.random()*3.8)*(recov?.5:1);
-      var a=Math.random()*6.283;
-      frags.push({
-        x:c.l+Math.random()*(c.r-c.l),y:c.t+Math.random()*(c.b-c.t),
-        w:bar?big*(2+Math.random()*4):big,h:bar?Math.max(2,big*.28):big,
-        vx:Math.cos(a)*sp,vy:Math.sin(a)*sp*.8,
-        life:16+Math.random()*34,max:50,ph:Math.random()*9,rate:.18+Math.random()*.4
-      });
-    }
+  ctx.clearRect(0, 0, W, H);
+  const stroke = col.line !== "transparent";
+  ctx.fillStyle = col.frag;
+  if (stroke) { ctx.strokeStyle = col.line; ctx.lineWidth = 1; }
+  for (let j = frags.length - 1; j >= 0; j--) {
+    const f = frags[j];
+    f.x += f.vx * dt; f.y += f.vy * dt;
+    f.vx *= Math.pow(.95, dt); f.vy *= Math.pow(.95, dt);
+    if (Math.random() < .12) f.vx += (Math.random() - .5) * 4;
+    f.life -= dt;
+    if (f.life <= 0) { frags.splice(j, 1); continue; }
+    const fade = f.life < 8 ? f.life / 8 : 1;
+    if (!(Math.sin(frame * f.rate + f.ph) > -.25 && Math.random() > .12)) continue;
+    ctx.globalAlpha = fade;
+    ctx.fillRect(f.x, f.y, f.w, f.h);
+    if (stroke) ctx.strokeRect(f.x + .5, f.y + .5, f.w, f.h);
   }
+  ctx.globalAlpha = 1;
+}
 
-  var last=performance.now(),frame=0;
-  function loop(now){
-    requestAnimationFrame(loop);
-    var dt=Math.min(2.5,(now-last)/16.667);last=now;frame++;
-    var t=(now-t0)/1000;
+/* ---------- gaze: feeds the scene's own LookAt event on "Glass Ball" ---------- */
+const sc = $("#spline");
+let evCtx = null;              // Spline event context (pointer -> raycaster)
+let sec = 1;                   // current section 1..4
+let gx = innerWidth / 2, gy = innerHeight / 2;
+const s2Els = hosts.s2.els, s3Els = hosts.s3.els;
 
-    if(ghostOn&&t>.9){
-      if(t>9){ghostOn=false;tx=ty=-9999}
-      else{
-        var h1=document.querySelector('h1').getBoundingClientRect();
-        tx=h1.left+h1.width*(.5+.46*Math.sin(t*1.1));
-        ty=h1.top+h1.height*(.5+.3*Math.sin(t*2.3));
-        if(px<-5000){px=tx;py=ty}
-      }
-    }
-    if(tx<-5000){px=py=-9999}else{px+=(tx-px)*Math.min(1,.45*dt);py+=(ty-py)*Math.min(1,.45*dt)}
-    if(real&&px>-5000){cur.style.transform='translate('+px+'px,'+py+'px)'}
-
-    var r1=R,r2=R*1.8;
-    for(var i=0;i<chars.length;i++){
-      var c=chars[i];
-      var dx=Math.max(c.l-px,0,px-c.r),dy=Math.max(c.t-py,0,py-c.b);
-      var dist=Math.sqrt(dx*dx+dy*dy);
-      var target=px<-5000?0:(dist<r1?1:(dist<r2?.32:0));
-      c.prev=c.d;
-      if(target>c.d)c.d=Math.min(target,c.d+.2*dt);
-      else c.d=Math.max(target,c.d-.028*dt);
-
-      if(c.d<.004){
-        if(c.on){var s=c.el.style;s.transform='';s.clipPath='';s.opacity='';s.textShadow='';c.on=false}
-        continue;
-      }
-      c.on=true;
-      var d=c.d,rec=d<c.prev-1e-4,k=rec?.5:1;
-      var op=1-smooth(.42,.78,d);
-      if(Math.random()<(rec?.14:.3)*d*(d>.3?2:1))op*=Math.random()<.5?0:.45;
-      var amp=d*c.h*.22*k;
-      var jx=(Math.random()-.5)*amp,jy=(Math.random()-.5)*amp*.35,sk=(Math.random()-.5)*d*34*k;
-      var sx=d*c.h*.07*Math.random()*k+.5;
-      var s2=c.el.style;
-      s2.transform='translate('+jx.toFixed(1)+'px,'+jy.toFixed(1)+'px) skewX('+sk.toFixed(1)+'deg)';
-      s2.opacity=op<.02?0:op.toFixed(2);
-      s2.textShadow=(-sx).toFixed(1)+'px 0 var(--a),'+sx.toFixed(1)+'px 0 var(--b)';
-      if(Math.random()<d*(rec?.5:.85)){
-        var a=Math.random()*55,b=Math.random()*(70-a*.4);
-        s2.clipPath='inset('+a.toFixed(0)+'% 0 '+b.toFixed(0)+'% 0)';
-      }else s2.clipPath='';
-
-      if(!rec&&d<.95)spawn(c,Math.min(1.6,c.h/70)*d*.55*dt,false);
-      else if(rec&&d>.12)spawn(c,Math.min(.9,c.h/120)*d*.18*dt,true);
-    }
-
-    ctx.clearRect(0,0,W,H);
-    var stroke=col.line!=='transparent';
-    ctx.fillStyle=col.frag;if(stroke){ctx.strokeStyle=col.line;ctx.lineWidth=1}
-    for(var j=frags.length-1;j>=0;j--){
-      var f=frags[j];
-      f.x+=f.vx*dt;f.y+=f.vy*dt;f.vx*=Math.pow(.95,dt);f.vy*=Math.pow(.95,dt);
-      if(Math.random()<.12)f.vx+=(Math.random()-.5)*4;
-      f.life-=dt;
-      if(f.life<=0){frags.splice(j,1);continue}
-      var fade=f.life<8?f.life/8:1;
-      var vis=Math.sin(frame*f.rate+f.ph)>-.25&&Math.random()>.12;
-      if(!vis)continue;
-      ctx.globalAlpha=fade;
-      ctx.fillRect(f.x,f.y,f.w,f.h);
-      if(stroke)ctx.strokeRect(f.x+.5,f.y+.5,f.w,f.h);
-    }
-    ctx.globalAlpha=1;
+function gazeTarget(now) {
+  const textEl = sec === 2 ? s2Els[0] : sec === 3 ? s3Els[0] : null;
+  if (textEl && parseFloat(getComputedStyle(textEl).opacity) > .25) {
+    const r = textEl.getBoundingClientRect();
+    // cursor on the text: read along with it; otherwise look at the text block
+    if (tx > r.left - 40 && tx < r.right + 40 && ty > r.top - 40 && ty < r.bottom + 40) return [tx, ty];
+    return [r.left + r.width / 2, r.top + r.height * .4];
   }
+  if (tx > -5000) return [tx, ty];
+  // no pointer (touch released, mouse outside): slow idle wander around the orb
+  const r = sc.getBoundingClientRect(), t = now / 1000, s = Math.min(r.width, r.height) * .32;
+  return [r.left + r.width / 2 + Math.sin(t * .6) * s + Math.sin(t * 1.7) * s * .2,
+          r.top + r.height / 2 + Math.sin(t * .8 + 1) * s * .5];
+}
+
+function gaze(now, dt) {
+  if (!evCtx) return;
+  const [x, y] = gazeTarget(now);
+  const k = 1 - Math.pow(1 - .085, dt);
+  gx += (x - gx) * k; gy += (y - gy) * k;
+  evCtx.domRect = sc.getBoundingClientRect(); // stage is CSS-transformed; keep raycast mapping exact
+  const ev = new PointerEvent("pointermove", { clientX: gx, clientY: gy, pointerType: "mouse" });
+  // the runtime reads pageX/pageY; synthetic events don't fill them reliably across browsers
+  Object.defineProperty(ev, "pageX", { value: gx + scrollX });
+  Object.defineProperty(ev, "pageY", { value: gy + scrollY });
+  sc.dispatchEvent(ev);
+}
+
+/* ---------- loop ---------- */
+const chromeEls = hosts.chrome.els;
+let last = performance.now();
+function loop(now) {
   requestAnimationFrame(loop);
-})();
+  const dt = Math.min(2.5, (now - last) / 16.667);
+  last = now;
+  // chrome lives only while section text is on screen
+  const op = Math.max(parseFloat(getComputedStyle(s2Els[0]).opacity), parseFloat(getComputedStyle(s3Els[0]).opacity));
+  for (const el of chromeEls) el.style.opacity = op.toFixed(3);
+  gaze(now, dt);
+  if (!reduced) glitch(dt);
+}
+requestAnimationFrame(loop);
+
+/* ---------- scroll choreography ---------- */
+const stage = $("#stage"), counter = $("#counter");
+if (window.gsap && window.ScrollTrigger) {
+  gsap.registerPlugin(ScrollTrigger);
+  const mm = gsap.matchMedia();
+  mm.add({ wide: "(min-width: 761px)", narrow: "(max-width: 760px)" }, ({ conditions: { wide } }) => {
+    const P2 = wide ? { xPercent: 23, yPercent: 0, scale: .78 } : { xPercent: 12, yPercent: -21, scale: .56 };
+    const P3 = wide ? { xPercent: -23, yPercent: 0, scale: .78 } : { xPercent: -12, yPercent: -21, scale: .56 };
+    gsap.timeline({
+      defaults: { duration: 1, ease: "power2.inOut" },
+      scrollTrigger: {
+        trigger: "#track", start: "top top", end: "bottom bottom", scrub: 1.1,
+        onUpdate: s => {
+          sec = Math.round(s.progress * 3) + 1;
+          counter.textContent = "0" + sec + " / 04";
+        }
+      }
+    }).to(stage, P2).to(stage, P3).to(stage, { xPercent: 0, yPercent: 0, scale: 1 });
+  });
+
+  document.querySelectorAll(".copy").forEach(copy => {
+    gsap.timeline({ scrollTrigger: { trigger: copy.closest(".panel"), start: "top bottom", end: "bottom top", scrub: .8 } })
+      .fromTo(copy, { opacity: 0, y: 80 }, { opacity: 1, y: 0, duration: .3, ease: "power2.out" })
+      .to(copy, { opacity: 1, duration: .4 })
+      .to(copy, { opacity: 0, y: -80, duration: .3, ease: "power2.in" });
+  });
+  ScrollTrigger.addEventListener("refresh", measure);
+}
+
+/* ---------- load Spline ---------- */
+const veil = $("#veil"), orb = $("#orb");
+setTimeout(() => veil.classList.add("gone"), 8000); // slow network: never trap the page behind the loader
+try {
+  const { Application } = await import(RUNTIME);
+  const app = new Application(sc);
+  await app.load(SCENE);
+  app.setBackgroundColor(BG);
+  evCtx = app.eventManager?.eventContext || null;
+  if (window.gsap && !reduced) gsap.fromTo(orb, { opacity: 0, scale: .86 }, { opacity: 1, scale: 1, duration: 1.8, ease: "expo.out", delay: .2 });
+  else orb.style.opacity = "1";
+} catch (e) {
+  console.warn("Spline scene failed to load:", e);
+}
+veil.classList.add("gone");
 </script>
-</body>
-</html>
